@@ -2,11 +2,6 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "version": 2,
   "builds": [
-    { "src": "api/health.js", "use": "@vercel/node" },
-    { "src": "api/games.js", "use": "@vercel/node" },
-    { "src": "api/games/[id].js", "use": "@vercel/node" },
-    { "src": "api/games/[id]/screenshots.js", "use": "@vercel/node" },
-    { "src": "api/games/[id]/game-series.js", "use": "@vercel/node" },
-    { "src": "api/games/match.js", "use": "@vercel/node" }
+    { "src": "api/[...path].js", "use": "@vercel/node" }
   ]
 }

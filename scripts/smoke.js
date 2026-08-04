@@ -31,19 +31,11 @@ loadDotEnv();
 const { post } = require('../api/lib/igdb');
 const cache = require('../api/lib/cache');
 
-function handlerOf(path) {
-  switch (path) {
-    case 'health': return require('../api/health.js');
-    case 'games': return require('../api/games.js');
-    case 'detail': return require('../api/games/[id].js');
-    case 'shots': return require('../api/games/[id]/screenshots.js');
-    case 'series': return require('../api/games/[id]/game-series.js');
-    case 'match': return require('../api/games/match.js');
-    default: throw new Error('unknown path');
-  }
-}
+// Single catch-all router: all routes go through api/[...path].js; we drive it
+// by setting req.query.path to the URL segments after /api.
+const router = require('../api/[...path].js');
 
-function invoke(handler, query, params = {}, opts = {}) {
+function invoke(segs, query = {}, opts = {}) {
   return new Promise((resolve) => {
     let body = null;
     const res = {
@@ -51,10 +43,10 @@ function invoke(handler, query, params = {}, opts = {}) {
       statusCode: 200,
       end(json) { body = json == null ? null : JSON.parse(json); },
     };
-    const merged = { ...query, ...params };
+    const merged = { ...query, path: segs };
     if (!opts.noKey) merged.key = process.env.API_SECRET;
     const req = { method: 'GET', headers: {}, query: merged };
-    handler(req, res).then(() => resolve({ status: res.statusCode, body })).catch((e) => resolve({ status: 500, body: null, error: e.message }));
+    router(req, res).then(() => resolve({ status: res.statusCode, body })).catch((e) => resolve({ status: 500, body: null, error: e.message }));
   });
 }
 
@@ -72,33 +64,36 @@ async function main() {
   if (!process.env.API_SECRET) console.log('API_SECRET not set - auth check uses empty secret (keep consistent).');
 
   // 1) health
-  log('health', (await invoke(handlerOf('health'), {})).body);
+  log('GET /api/health', (await invoke(['health'])).body);
 
   // 2) search list
-  const list = await invoke(handlerOf('games'), { search: searchTitle, page: 1, page_size: 5 });
-  log('GET /games (search)', list.body);
+  const list = await invoke(['games'], { search: searchTitle, page: 1, page_size: 5 });
+  log('GET /api/games (search)', list.body);
   const firstGame = list.body.results && list.body.results[0];
   const gameId = firstGame && firstGame.id;
   console.log(`\nPicked id=${gameId} for detail/screenshots/series checks`);
 
-  // 3) popular/filters (no search, ordering + dates)
-  log('GET /games (ordering=-metacritic, page_size=3)', (await invoke(handlerOf('games'), { ordering: '-metacritic', page_size: 3 })).body);
+  // 3) popular/filters (no search, ordering)
+  log('GET /api/games (ordering=-metacritic, page_size=3)', (await invoke(['games'], { ordering: '-metacritic', page_size: 3 })).body);
 
   // 4) detail
-  if (gameId) log('GET /games/:id', (await invoke(handlerOf('detail'), {}, { id: gameId })).body);
+  if (gameId) log('GET /api/games/:id', (await invoke(['games', String(gameId)])).body);
 
   // 5) screenshots
-  if (gameId) log('GET /games/:id/screenshots', (await invoke(handlerOf('shots'), {}, { id: gameId })).body);
+  if (gameId) log('GET /api/games/:id/screenshots', (await invoke(['games', String(gameId), 'screenshots'])).body);
 
   // 6) series
-  if (gameId) log('GET /games/:id/game-series', (await invoke(handlerOf('series'), {}, { id: gameId })).body);
+  if (gameId) log('GET /api/games/:id/game-series', (await invoke(['games', String(gameId), 'game-series'])).body);
 
   // 7) match
-  log('GET /games/match', (await invoke(handlerOf('match'), { title: searchTitle, year: '2015' })).body);
+  log('GET /api/games/match', (await invoke(['games', 'match'], { title: searchTitle, year: '2015' })).body);
 
   // 8) auth rejection
-  const noKey = await invoke(handlerOf('games'), { search: searchTitle }, {}, { noKey: true });
-  log('GET /games WITHOUT key (expect 401)', noKey);
+  const noKey = await invoke(['games'], { search: searchTitle }, { noKey: true });
+  log('GET /api/games WITHOUT key (expect 401)', noKey);
+
+  // 9) unknown route (expect 404)
+  log('GET /api/bogus (expect 404)', await invoke(['bogus']));
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });
