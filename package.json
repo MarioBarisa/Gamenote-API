@@ -1,0 +1,10 @@
+{
+  "name": "gamenote-api",
+  "version": "1.0.0",
+  "private": true,
+  "description": "DROP-IN RAWG-compatible API backed by IGDB, for the Gamenote project (Vercel serverless).",
+  "scripts": {
+    "smoke": "node scripts/smoke.js",
+    "check": "find api scripts -name '*.js' -not -path '*/node_modules/*' | xargs -I{} node --check {}"
+  }
+}
