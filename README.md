@@ -61,6 +61,68 @@ This hits the real IGDB API and prints the exact JSON for every endpoint so you 
 verify the contract before deploying.
 
 ---
+
+## Deploy to Vercel
+
+```bash
+vercel                       # link to a Vercel project
+vercel env add API_SECRET production
+vercel env add API_SECRET preview
+vercel env add IGDB_CLIENT_ID production
+vercel env add IGDB_CLIENT_SECRET production
+vercel env add IGDB_CLIENT_ID preview
+vercel env add IGDB_CLIENT_SECRET preview
+vercel --prod
+```
+
+`vercel.json` routes every `/api/*` request to the single `api/index.js` function,
+so the API lives at:
+
+```
+https://<your-project>.vercel.app/api
+```
+
+---
+
+## Point the clients at the new API
+
+Generate one shared secret and put the **same value** in all three places.
+
+### Web — https://github.com/MarioBarisa/Gamenote
+`.env`:
+```
+VITE_RAWG_API_KEY=<same as API_SECRET>
+```
+`src/services/gamesApi.js`:
+```js
+const BASE_URL = 'https://<your-project>.vercel.app/api';
+```
+
+### Mobile — https://github.com/MarioBarisa/GamenoteMobile
+`Gamenote/services/gamesApi.ts`:
+```ts
+const BASE_URL = 'https://<your-project>.vercel.app/api'
+```
+and set `RAWG_API_KEY` (in `constants/env`) to the same secret.
+
+That's it — search, details, screenshots, and series keep working unchanged.
+
+---
+
+## Migrating an existing library (optional)
+
+Old `game_api_id` rows in Supabase still hold RAWG ids, which this API cannot serve
+(IGDB ids are stable and used for new adds, so "already in library" keeps working for
+everything added after the switch). To migrate, use the web export/import flow and
+rewrite each `game_api_id` via:
+
+```
+GET /api/games/match?title=<game name>&year=<release year>
+→ { "id": <IGDB id>, "name": ..., "released": ..., "score": ... }
+```
+
+---
+
 ## Notes & tradeoffs
 
 - **Auth**: a single shared bearer secret compared in constant time (`api/lib/auth.js`).
@@ -74,12 +136,7 @@ verify the contract before deploying.
 
 ```
 api/
-  games.js                      list + search + filters
-  health.js
-  games/[id].js                 details
-  games/[id]/screenshots.js
-  games/[id]/game-series.js
-  games/match.js                migration helper
+  index.js                      single catch-all router (all endpoints)
   lib/
     igdb.js                     IGDB token manager + POST helper
     map.js                      IGDB object -> RAWG shape
@@ -90,3 +147,7 @@ api/
 scripts/
   smoke.js                      live endpoint test harness
 ```
+
+Routing is done inside `api/index.js` from the URL path (no reliance on Vercel's
+dynamic-route param injection). `vercel.json` points one explicit route at it:
+`^/api(/.*)?$` -> `api/index.js`.
