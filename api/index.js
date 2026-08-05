@@ -100,6 +100,7 @@ async function handleGames(req, res) {
     cache.set(cacheKey, payload, LIST_TTL);
     return sendJson(res, payload);
   } catch (err) {
+    console.error('[igdb]', err);
     return sendJson(res, { count: 0, next: null, previous: null, results: [] });
   }
 }
@@ -111,7 +112,8 @@ const DETAIL_FIELDS =
   'genres.id, genres.name, involved_companies.publisher, ' +
   'involved_companies.company.id, involved_companies.company.name, ' +
   'platforms.id, platforms.name, websites.category, websites.url, ' +
-  'age_ratings.category, age_ratings.rating, screenshots.id, screenshots.image_id, artworks.image_id';
+  'age_ratings.organization, age_ratings.rating_category, ' +
+  'involved_companies.developer, screenshots.id, screenshots.image_id, artworks.image_id';
 const DETAIL_TTL = 48 * 60 * 60 * 1000;
 
 async function handleGame(req, res, id) {
@@ -127,6 +129,7 @@ async function handleGame(req, res, id) {
     cache.set(cacheKey, payload, DETAIL_TTL);
     return sendJson(res, payload);
   } catch (err) {
+    console.error('[igdb]', err);
     return sendJson(res, { detail: 'Not found' }, 404);
   }
 }
@@ -150,6 +153,7 @@ async function handleScreenshots(req, res, id) {
     cache.set(cacheKey, payload, SHOT_TTL);
     return sendJson(res, payload);
   } catch (err) {
+    console.error('[igdb]', err);
     return sendJson(res, { count: 0, results: [] });
   }
 }
@@ -216,6 +220,7 @@ async function handleSeries(req, res, id) {
     cache.set(cacheKey, payload, SERIES_TTL);
     return sendJson(res, payload);
   } catch (err) {
+    console.error('[igdb]', err);
     return sendJson(res, { count: 0, results: [] });
   }
 }
@@ -266,6 +271,7 @@ async function handleMatch(req, res) {
       score: Number(best.score.toFixed(2)),
     });
   } catch (err) {
+    console.error('[igdb]', err);
     return sendJson(res, { id: null, name: null, released: null, score: 0 });
   }
 }

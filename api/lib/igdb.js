@@ -44,7 +44,9 @@ async function getAccessToken() {
   });
 
   if (!res.ok) {
-    throw new Error(`IGDB token request failed: ${res.status}`);
+    const err = new Error(`IGDB token request failed: ${res.status}`);
+    console.error('[igdb]', err.message);
+    throw err;
   }
 
   const data = await res.json();
@@ -73,7 +75,9 @@ async function post(endpoint, body) {
   });
 
   if (!res.ok) {
-    throw new Error(`IGDB ${endpoint} failed: ${res.status} ${res.statusText}`);
+    const err = new Error(`IGDB ${endpoint} failed: ${res.status} ${res.statusText}`);
+    console.error('[igdb]', err.message);
+    throw err;
   }
 
   return res.json();

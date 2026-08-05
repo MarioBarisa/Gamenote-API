@@ -22,21 +22,23 @@ function genresOf(game) {
   return (game.genres || []).map((g) => ({ id: g.id, name: g.name }));
 }
 
-// ESRB rating (age_ratings with category ESRB = 1).
-const ESRB_NAMES = {
-  1: 'Rating Pending',
-  2: 'Early Childhood',
-  3: 'Everyone',
-  4: 'Everyone 10+',
-  5: 'Teen',
-  6: 'Mature',
-  7: 'Adults Only',
+// ESRB rating (age_ratings with organization ESRB = 1). IGDB v4 uses
+// `organization`/`rating_category`; RAWG uses `{ id, slug, name }`.
+const ESRB_SLUGS = {
+  3: ['everyone', 'Everyone'],
+  4: ['everyone-10-plus', 'Everyone 10+'],
+  5: ['teen', 'Teen'],
+  6: ['mature', 'Mature'],
+  7: ['adults-only', 'Adults Only'],
+  1: ['rating-pending', 'Rating Pending'],
+  2: ['early-childhood', 'Early Childhood'],
 };
 
 function esrbOf(game) {
-  const rating = (game.age_ratings || []).find((ar) => ar.category === 1);
+  const rating = (game.age_ratings || []).find((ar) => ar.organization === 1);
   if (!rating) return null;
-  return { id: rating.id, name: ESRB_NAMES[rating.rating] || 'Unknown' };
+  const [slug, name] = ESRB_SLUGS[rating.rating_category] || ['unknown', 'Unknown'];
+  return { id: rating.id, slug, name };
 }
 
 function publishersOf(game) {
@@ -45,8 +47,37 @@ function publishersOf(game) {
     .map((ic) => ({ id: ic.company.id, name: ic.company.name }));
 }
 
+function developersOf(game) {
+  return (game.involved_companies || [])
+    .filter((ic) => ic.developer === true)
+    .map((ic) => ({ id: ic.company.id, name: ic.company.name }));
+}
+
+// IGDB platform names differ from the RAWG strings the Gamenote clients
+// use in their fixed <option> lists. Normalize to the canonical set the
+// clients match against; anything else collapses to 'Other'.
+const PLATFORM_NAMES = {
+  'PC (Microsoft Windows)': 'PC',
+  'Xbox Series X|S': 'Xbox Series X/S',
+};
+const CANONICAL_PLATFORMS = new Set([
+  'PC',
+  'PlayStation 5',
+  'PlayStation 4',
+  'Xbox Series X/S',
+  'Xbox One',
+  'Nintendo Switch',
+  'Nintendo Switch 2',
+  'iOS',
+  'Android',
+  'Other',
+]);
+
 function platformsOf(game) {
-  return (game.platforms || []).map((p) => ({ platform: { id: p.id, name: p.name } }));
+  return (game.platforms || []).map((p) => {
+    const name = PLATFORM_NAMES[p.name] || p.name;
+    return { platform: { id: p.id, name: CANONICAL_PLATFORMS.has(name) ? name : 'Other' } };
+  });
 }
 
 // Official website (category 1) preferred, else first link.
@@ -93,6 +124,7 @@ function toDetails(game) {
     esrb_rating: esrbOf(game),
     genres: genresOf(game),
     publishers: publishersOf(game),
+    developers: developersOf(game),
     platforms: platformsOf(game),
     achievements_count: 0,
     parent_achievements: [],
