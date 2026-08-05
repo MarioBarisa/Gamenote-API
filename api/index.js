@@ -1,7 +1,6 @@
 // Single catch-all Vercel function: routes /api/* internally.
-// This avoids Vercel's nested-dynamic-route auto-routing entirely and parses
-// the game id from the URL ourselves (req.query.path), so no reliance on
-// Vercel's query-param injection.
+// Parses the path segments from req.url (fallback to req.query.path), so it
+// does not depend on Vercel's dynamic-route param injection.
 //
 // Routed paths:
 //   /api/health
@@ -10,6 +9,7 @@
 //   /api/games/:id/screenshots
 //   /api/games/:id/game-series
 //   /api/games/match                     migration helper
+
 const { handlePreflight, sendJson } = require('./lib/cors');
 const { authenticate } = require('./lib/auth');
 const igdb = require('./lib/igdb');
@@ -19,6 +19,19 @@ const { toListItem, toDetails, dateFromUnix } = require('./lib/map');
 
 function one(v) {
   return Array.isArray(v) ? v[0] : v;
+}
+
+// Resolve URL path segments after /api, e.g. /api/games/1942/screenshots
+// -> ['games', '1942', 'screenshots'].
+function pathSegments(req) {
+  if (req.query && req.query.path !== undefined) {
+    const p = req.query.path;
+    return (Array.isArray(p) ? p : [p]).filter(Boolean);
+  }
+  const u = (req.url || '').split('?')[0];
+  const segs = u.split('/').filter(Boolean);
+  if (segs[0] === 'api') segs.shift();
+  return segs;
 }
 
 function toUnix(dateStr) {
@@ -263,9 +276,7 @@ module.exports = async (req, res) => {
   if (handlePreflight(req, res)) return;
   if (!authenticate(req)) return sendJson(res, { detail: 'Unauthorized' }, 401);
 
-  const raw = req.query.path;
-  const segs = (Array.isArray(raw) ? raw : [raw]).filter(Boolean);
-  const [a, b, c] = segs;
+  const [a, b, c] = pathSegments(req);
 
   if (a === 'health') return handleHealth(req, res);
   if (a === 'games') {

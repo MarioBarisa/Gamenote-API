@@ -31,9 +31,9 @@ loadDotEnv();
 const { post } = require('../api/lib/igdb');
 const cache = require('../api/lib/cache');
 
-// Single catch-all router: all routes go through api/[...path].js; we drive it
-// by setting req.query.path to the URL segments after /api.
-const router = require('../api/[...path].js');
+// Single router: all routes go through api/index.js; we simulate the real HTTP
+// path via req.url (same path-parsing the deployed function uses).
+const router = require('../api/index.js');
 
 function invoke(segs, query = {}, opts = {}) {
   return new Promise((resolve) => {
@@ -43,9 +43,9 @@ function invoke(segs, query = {}, opts = {}) {
       statusCode: 200,
       end(json) { body = json == null ? null : JSON.parse(json); },
     };
-    const merged = { ...query, path: segs };
+    const merged = { ...query };
     if (!opts.noKey) merged.key = process.env.API_SECRET;
-    const req = { method: 'GET', headers: {}, query: merged };
+    const req = { method: 'GET', headers: {}, url: `/api/${segs.join('/')}`, query: merged };
     router(req, res).then(() => resolve({ status: res.statusCode, body })).catch((e) => resolve({ status: 500, body: null, error: e.message }));
   });
 }
