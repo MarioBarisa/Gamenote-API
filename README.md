@@ -1,7 +1,7 @@
 # Gamenote API
 
 A **drop-in replacement for the RAWG API**, backed by [IGDB](https://api.igdb.com/v4)).
-It returns the exact JSON shapes the two Gamenote clients already expect, so both apps keep
+It returns the exact JSON shapes the two Gamenote clients ( or any other app ) already expect, so both apps keep
 working with **only a `BASE_URL` (and API-key) change** — no logic edits.
 
 - Plain Vercel Node serverless functions, CommonJS, **zero npm dependencies** (native `fetch`).
@@ -83,54 +83,6 @@ https://<your-project>.vercel.app/api
 ```
 
 ---
-
-## Point the clients at the new API
-
-Generate one shared secret and put the **same value** in all three places.
-
-### Web — https://github.com/MarioBarisa/Gamenote
-`.env`:
-```
-VITE_RAWG_API_KEY=<same as API_SECRET>
-```
-`src/services/gamesApi.js`:
-```js
-const BASE_URL = 'https://<your-project>.vercel.app/api';
-```
-
-### Mobile — https://github.com/MarioBarisa/GamenoteMobile
-`Gamenote/services/gamesApi.ts`:
-```ts
-const BASE_URL = 'https://<your-project>.vercel.app/api'
-```
-and set `RAWG_API_KEY` (in `constants/env`) to the same secret.
-
-That's it — search, details, screenshots, and series keep working unchanged.
-
----
-
-## Migrating an existing library (optional)
-
-Old `game_api_id` rows in Supabase still hold RAWG ids, which this API cannot serve
-(IGDB ids are stable and used for new adds, so "already in library" keeps working for
-everything added after the switch). To migrate, use the web export/import flow and
-rewrite each `game_api_id` via:
-
-```
-GET /api/games/match?title=<game name>&year=<release year>
-→ { "id": <IGDB id>, "name": ..., "released": ..., "score": ... }
-```
-
----
-
-## Notes & tradeoffs
-
-- **Auth**: a single shared bearer secret compared in constant time (`api/lib/auth.js`).
-  Preflight `OPTIONS` requests still pass (CORS), real requests require `key`.
-- **Errors**: IGDB failures return `200` with empty `results` on list endpoints so the UIs
-  never crash; unknown game ids return `404` (clients already degrade to `null`/empty).
-- **Rate limit**: a simple throttle keeps this API under IGDB's 4 req/s; caching makes this a non-issue.
-- **CORS**: `Access-Control-Allow-Origin: *` is set on every response for the web client.
 
 ## Project layout
 
